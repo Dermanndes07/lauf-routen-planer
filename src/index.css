@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Damit die Karte den ganzen Bildschirm füllt */
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  margin: 0;
+}
