@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Navigation, RefreshCw, Footprints, Ruler, Search, MoreVertical, X, Settings, Play, Map as MapIcon, StopCircle, Heart, List, Trash2, Calendar, Edit2, Share2, CheckCircle2, User, LogOut, Cloud, Sun, CloudRain, Download, Clock, BarChart3 } from 'lucide-react';
-import { Analytics } from '@vercel/analytics/next';
-<Analytics></Analytics>
+import { inject } from '@vercel/analytics';
+
+// Initialize Vercel Web Analytics on client side
+inject();
 
 
 
