@@ -1,5 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Navigation, RefreshCw, Footprints, Ruler, Search, MoreVertical, X, Settings, Play, Map as MapIcon, StopCircle, Heart, List, Trash2, Calendar, Edit2, Share2, CheckCircle2, User, LogOut, Cloud, Sun, CloudRain, Download, Clock, BarChart3 } from 'lucide-react';
+import { Analytics } from '@vercel/analytics/next';
+<Analytics></Analytics>
+
+
 
 /* --- BESUCHER TRACKING ANLEITUNG ---
    Damit du sehen kannst, wie viele Leute auf der Website sind:
@@ -8,6 +12,7 @@ import { Navigation, RefreshCw, Footprints, Ruler, Search, MoreVertical, X, Sett
    3. Füge sie unten bei "GA_MEASUREMENT_ID" ein.
 */
 const GA_MEASUREMENT_ID = ""; // Hier ID eintragen, z.B. "G-ABC123XYZ"
+
 
 // Leaflet Map Komponente
 const LeafletMap = ({ center, routeCoords, markers, onMarkerDragEnd, isNavigating, userLocation, previewMode }) => {
