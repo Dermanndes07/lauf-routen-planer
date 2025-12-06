@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Navigation, RefreshCw, Footprints, Ruler, Search, MoreVertical, X, Settings, Map as MapIcon, StopCircle, Heart, List, Trash2, Calendar, Edit2, Share2, CheckCircle2, Cloud, Sun, CloudRain, Download, Clock, BarChart3, ExternalLink, ArrowRight, Loader2 } from 'lucide-react';
+import { Navigation, RefreshCw, Footprints, Ruler, Search, MoreVertical, X, Settings, Map as MapIcon, StopCircle, Heart, List, Trash2, Calendar, Edit2, Share2, CheckCircle2, Cloud, Sun, CloudRain, Download, Clock, BarChart3, ExternalLink, ArrowRight, Loader2, MapPin } from 'lucide-react';
+import { Analytics } from '@vercel/analytics/react';
 
 // Google Analytics Konfiguration (optional, sonst leer lassen)
 const GA_MEASUREMENT_ID = ""; 
@@ -105,13 +106,13 @@ const LeafletMap = ({ center, routeCoords, markers, onMarkerDragEnd, userLocatio
     if (borderLayerRef.current) map.removeLayer(borderLayerRef.current);
     if (userMarkerRef.current) map.removeLayer(userMarkerRef.current);
 
-    // Startpunkt Marker (Pulsierend beim Planen) - Farbe angepasst (Schwarz/Dunkelgrau statt Blau)
+    // Startpunkt Marker (Pulsierend beim Planen) - Farbe angepasst (Indigo statt Blau)
     const pulseHtml = viewState === 'planning' 
         ? `<div class="relative flex items-center justify-center w-full h-full">
-             <div class="absolute w-full h-full bg-blue-500/30 rounded-full animate-ping"></div>
-             <div style="background-color: #1e293b; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); position: relative; z-index: 10;"></div>
+             <div class="absolute w-full h-full bg-indigo-500/30 rounded-full animate-ping"></div>
+             <div style="background-color: #4f46e5; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); position: relative; z-index: 10;"></div>
            </div>`
-        : `<div style="background-color: #1e293b; width: 18px; height: 18px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>`;
+        : `<div style="background-color: #4f46e5; width: 18px; height: 18px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>`;
 
     const userIcon = L.divIcon({
         className: 'user-pos-icon',
@@ -137,17 +138,17 @@ const LeafletMap = ({ center, routeCoords, markers, onMarkerDragEnd, userLocatio
     if (routeCoords && routeCoords.length > 0) {
       // 1. Dicker Rand (für Kontrast zur Straße)
       borderLayerRef.current = L.polyline(routeCoords, {
-        color: '#0f172a', // Sehr dunkles Blau/Schwarz
-        weight: 8, 
+        color: '#312e81', // Sehr dunkles Indigo
+        weight: 9, 
         opacity: 0.4,
         lineCap: 'round',
         lineJoin: 'round'
       }).addTo(map);
 
-      // 2. Hauptlinie (Jetzt in einem kräftigen Anthrazit/Blau-Ton statt Hellblau)
+      // 2. Hauptlinie (Kräftiges Indigo)
       routeLayerRef.current = L.polyline(routeCoords, {
-        color: '#334155', // Slate-700
-        weight: 5,
+        color: '#4f46e5', // Indigo-600
+        weight: 6,
         opacity: 1.0,
         lineCap: 'round',
         lineJoin: 'round'
@@ -454,7 +455,7 @@ export default function App() {
   const shareRoute = (route) => {
       const origin = `${route.startLocation[0]},${route.startLocation[1]}`;
       const waypointsStr = route.waypoints ? route.waypoints.map(wp => `${wp[0]},${wp[1]}`).join('|') : '';
-      const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${origin}&waypoints=${waypointsStr}&travelmode=walking`;
+      const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypointsStr}&travelmode=walking`;
       const shareText = `🏃‍♂️ ${route.name} (${route.distance}km)\n${mapsUrl}`;
       if (navigator.share) navigator.share({ title: 'LaufRunde', text: shareText, url: mapsUrl }).catch(()=>{});
       else window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
@@ -501,42 +502,43 @@ export default function App() {
 
   const getWeatherIcon = (code) => {
       if (code === undefined) return <Cloud size={18} />;
-      if (code <= 1) return <Sun size={18} className="text-amber-500" />;
-      if (code <= 3) return <Cloud size={18} className="text-slate-400" />;
-      return <CloudRain size={18} className="text-blue-400" />;
+      if (code <= 1) return <Sun size={18} className="text-amber-400" />;
+      if (code <= 3) return <Cloud size={18} className="text-white/80" />;
+      return <CloudRain size={18} className="text-blue-300" />;
   };
 
   return (
     <div className="flex flex-col h-screen w-full bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
+      <Analytics />
       
       {/* Floating Header - Jetzt lebendiger & moderner */}
       {viewState !== 'export' && (
         <div className="absolute top-4 left-4 right-4 z-[500] flex flex-col gap-2">
-            <div className="bg-white/80 backdrop-blur-xl shadow-lg rounded-full p-3 flex items-center justify-between border border-white/50 transition-all hover:shadow-xl">
-                <div className="flex items-center gap-2 text-blue-600 pl-3">
-                    <Footprints className="h-7 w-7 fill-blue-600" />
-                    <span className="font-black text-xl tracking-tight bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">LaufRunde</span>
+            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 shadow-xl rounded-2xl p-3 flex items-center justify-between border border-white/20 transition-all hover:shadow-2xl">
+                <div className="flex items-center gap-2 text-white pl-2">
+                    <Footprints className="h-6 w-6 fill-white" />
+                    <span className="font-black text-xl tracking-tight text-white drop-shadow-md">LaufRunde</span>
                 </div>
                 
                 <div className="flex gap-2">
                     {weather && (
-                        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-xs font-bold shadow-sm">
+                        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white/20 text-white rounded-xl text-xs font-bold backdrop-blur-sm border border-white/10">
                             {getWeatherIcon(weather.weathercode)}
                             <span>{Math.round(weather.temperature)}°C</span>
                         </div>
                     )}
-                    <button onClick={() => setShowSavedRoutes(true)} className="p-2.5 bg-white text-slate-700 rounded-full shadow-sm hover:bg-blue-50 hover:text-blue-600 hover:scale-105 hover:shadow-md transition-all border border-slate-100 group">
-                        <List size={20} className="transition-colors"/>
+                    <button onClick={() => setShowSavedRoutes(true)} className="p-2.5 bg-white/20 text-white rounded-xl shadow-sm hover:bg-white/30 backdrop-blur-sm transition-all border border-white/10 group">
+                        <List size={20} className="transition-transform group-hover:scale-110"/>
                     </button>
-                    <button onClick={locateUser} className="p-2.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-full shadow-md hover:from-blue-600 hover:to-indigo-700 hover:scale-105 hover:shadow-lg transition-all">
+                    <button onClick={locateUser} className="p-2.5 bg-white text-indigo-600 rounded-xl shadow-lg hover:bg-indigo-50 hover:scale-105 transition-all">
                         <Navigation size={20} />
                     </button>
                 </div>
             </div>
             {/* Search Bar */}
             {viewState === 'planning' && (
-                 <form onSubmit={handleManualLocationSearch} className="bg-white/80 backdrop-blur-md shadow-lg rounded-full p-1 flex items-center border border-white/50 hover:shadow-xl transition-all focus-within:shadow-xl focus-within:border-blue-300">
-                    <Search className="ml-4 text-blue-400 h-5 w-5" />
+                 <form onSubmit={handleManualLocationSearch} className="bg-white/90 backdrop-blur-xl shadow-lg rounded-2xl p-1 flex items-center border border-white/50 hover:shadow-xl transition-all focus-within:shadow-xl focus-within:border-indigo-300">
+                    <Search className="ml-4 text-indigo-400 h-5 w-5" />
                     <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Startpunkt suchen..." className="w-full p-3 bg-transparent outline-none text-sm text-slate-700 placeholder-slate-400" />
                 </form>
             )}
@@ -555,30 +557,32 @@ export default function App() {
         />
       </div>
 
-      {/* SAVED ROUTES OVERLAY - Modernes Glassmorphism Design */}
+      {/* SAVED ROUTES OVERLAY */}
       {showSavedRoutes && (
-            <div className="absolute inset-0 z-[600] bg-black/30 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 animate-in fade-in" onClick={() => setShowSavedRoutes(false)}>
-            <div className="bg-white/90 backdrop-blur-xl w-full max-w-sm rounded-[2.5rem] shadow-2xl overflow-hidden max-h-[75vh] flex flex-col border border-white/50" onClick={e => e.stopPropagation()}>
+            <div className="absolute inset-0 z-[600] bg-black/40 backdrop-blur-md flex items-end sm:items-center justify-center p-4 animate-in fade-in" onClick={() => setShowSavedRoutes(false)}>
+            <div className="bg-white/95 backdrop-blur-xl w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden max-h-[75vh] flex flex-col border border-white/50" onClick={e => e.stopPropagation()}>
                 <div className="p-6 border-b border-slate-100 flex justify-between items-center bg-white/40">
-                    <h3 className="font-black text-xl tracking-tight text-slate-800">Meine Routen</h3>
-                    <button onClick={() => setShowSavedRoutes(false)} className="p-2 hover:bg-slate-100/50 rounded-full transition-colors"><X size={22}/></button>
+                    <h3 className="font-black text-xl tracking-tight text-slate-800 flex items-center gap-2">
+                         <Heart className="fill-rose-500 text-rose-500" size={20}/> Meine Routen
+                    </h3>
+                    <button onClick={() => setShowSavedRoutes(false)} className="p-2 hover:bg-slate-100/80 rounded-full transition-colors"><X size={22}/></button>
                 </div>
                 <div className="p-4 overflow-y-auto space-y-3 scrollbar-hide">
                     {savedRoutes.length === 0 && <p className="text-center text-slate-400 py-12 font-medium">Noch nichts gespeichert.</p>}
                     {savedRoutes.map(route => (
-                        <div key={route.id} className="bg-white/70 border border-slate-100 rounded-2xl p-4 shadow-sm hover:shadow-md hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer group" onClick={() => loadRoute(route)}>
+                        <div key={route.id} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm hover:shadow-lg hover:border-indigo-100 hover:scale-[1.01] active:scale-[0.98] transition-all cursor-pointer group" onClick={() => loadRoute(route)}>
                             <div className="flex justify-between items-start mb-3">
                                 <span className="font-bold text-slate-800 text-lg">{route.name}</span>
-                                <span className="text-[10px] font-bold bg-blue-50 text-blue-600 px-3 py-1 rounded-full uppercase tracking-wide">{route.date}</span>
+                                <span className="text-[10px] font-bold bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full uppercase tracking-wide">{route.date}</span>
                             </div>
                             <div className="flex items-center gap-4 text-sm text-slate-600 mb-3">
-                                <span className="flex items-center gap-1.5 font-medium"><Ruler size={16} className="text-blue-400"/> {route.distance} km</span>
-                                <span className="flex items-center gap-1.5 font-medium"><Clock size={16} className="text-blue-400"/> ~{formatDuration(parseFloat(route.distance))}</span>
+                                <span className="flex items-center gap-1.5 font-medium"><Ruler size={16} className="text-indigo-400"/> {route.distance} km</span>
+                                <span className="flex items-center gap-1.5 font-medium"><Clock size={16} className="text-indigo-400"/> ~{formatDuration(parseFloat(route.distance))}</span>
                             </div>
                             <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={(e) => { e.stopPropagation(); renameRoute(route.id); }} className="p-2 bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-blue-600 rounded-xl transition-colors" title="Umbennen"><Edit2 size={14}/></button>
+                                <button onClick={(e) => { e.stopPropagation(); renameRoute(route.id); }} className="p-2 bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 rounded-xl transition-colors" title="Umbennen"><Edit2 size={14}/></button>
                                 <button onClick={(e) => { e.stopPropagation(); shareRoute(route); }} className="p-2 bg-slate-50 hover:bg-green-50 text-slate-500 hover:text-green-600 rounded-xl transition-colors" title="Teilen"><Share2 size={14}/></button>
-                                <button onClick={(e) => { e.stopPropagation(); downloadGPX(route); }} className="p-2 bg-slate-50 hover:bg-indigo-50 text-slate-500 hover:text-indigo-600 rounded-xl transition-colors" title="GPX Download"><Download size={14}/></button>
+                                <button onClick={(e) => { e.stopPropagation(); downloadGPX(route); }} className="p-2 bg-slate-50 hover:bg-amber-50 text-slate-500 hover:text-amber-600 rounded-xl transition-colors" title="GPX Download"><Download size={14}/></button>
                                 <button onClick={(e) => { e.stopPropagation(); deleteRoute(route.id); }} className="p-2 bg-slate-50 hover:bg-red-50 text-slate-500 hover:text-red-600 rounded-xl transition-colors" title="Löschen"><Trash2 size={14}/></button>
                             </div>
                         </div>
@@ -590,16 +594,16 @@ export default function App() {
 
       {/* SETTINGS OVERLAY */}
       {showSettings && (
-        <div className="absolute inset-0 z-[600] bg-black/30 backdrop-blur-sm flex items-end sm:items-center justify-center p-4" onClick={() => setShowSettings(false)}>
-            <div className="bg-white/90 backdrop-blur-xl w-full max-w-sm rounded-[2.5rem] p-6 shadow-2xl border border-white/50" onClick={e => e.stopPropagation()}>
+        <div className="absolute inset-0 z-[600] bg-black/40 backdrop-blur-md flex items-end sm:items-center justify-center p-4" onClick={() => setShowSettings(false)}>
+            <div className="bg-white/95 backdrop-blur-xl w-full max-w-sm rounded-[2rem] p-6 shadow-2xl border border-white/50" onClick={e => e.stopPropagation()}>
                 <div className="flex justify-between mb-8 items-center"><h3 className="font-black text-2xl text-slate-800">Einstellungen</h3><button onClick={() => setShowSettings(false)} className="p-2 hover:bg-slate-100/50 rounded-full transition"><X size={24}/></button></div>
                 <div className="space-y-6">
                     <div>
                         <div className="flex justify-between items-center mb-3">
                             <label className="font-bold text-slate-700">Lauf-Tempo</label>
-                            <span className="font-mono font-bold text-blue-600 bg-blue-50 px-3 py-1 rounded-lg shadow-sm">{Math.floor(pace)}:{Math.round((pace % 1) * 60).toString().padStart(2, '0')} min/km</span>
+                            <span className="font-mono font-bold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-lg shadow-sm">{Math.floor(pace)}:{Math.round((pace % 1) * 60).toString().padStart(2, '0')} min/km</span>
                         </div>
-                        <input type="range" min="3.0" max="10.0" step="0.1" value={pace} onChange={(e) => setPace(parseFloat(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-blue-600 cursor-pointer hover:accent-blue-700" />
+                        <input type="range" min="3.0" max="10.0" step="0.1" value={pace} onChange={(e) => setPace(parseFloat(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-indigo-600 cursor-pointer hover:accent-indigo-700" />
                         <div className="flex justify-between text-xs font-bold text-slate-400 mt-2 uppercase tracking-wider"><span>Schnell</span><span>Gemütlich</span></div>
                     </div>
                 </div>
@@ -611,7 +615,7 @@ export default function App() {
       {loading && (
           <div className="absolute inset-0 z-[700] flex items-center justify-center pointer-events-none">
               <div className="bg-white/90 backdrop-blur-md px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-3 animate-in zoom-in-95 border border-white/20">
-                  <Loader2 className="animate-spin text-blue-600" size={24} />
+                  <Loader2 className="animate-spin text-indigo-600" size={24} />
                   <span className="font-bold text-slate-800">Route wird berechnet...</span>
               </div>
           </div>
@@ -628,23 +632,23 @@ export default function App() {
                 <>
                     <div className="flex justify-between items-center mb-6">
                         <span className="text-xs font-black text-slate-400 uppercase tracking-widest">Wunschdistanz</span>
-                        <button onClick={() => setShowSettings(true)} className="text-slate-400 hover:text-blue-600 hover:bg-blue-50 p-2 rounded-full transition-all"><Settings size={22}/></button>
+                        <button onClick={() => setShowSettings(true)} className="text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 p-2 rounded-full transition-all"><Settings size={22}/></button>
                     </div>
-                    <div className="flex items-center gap-3 mb-8">
-                        <div className="relative flex-grow">
-                            <input 
-                                type="number" 
-                                min="1" 
-                                max="100" 
-                                step="0.1" 
-                                value={distance} 
-                                onChange={(e) => setDistance(parseFloat(e.target.value))} 
-                                className="w-full text-5xl font-black text-slate-900 tracking-tighter bg-transparent outline-none border-b-2 border-slate-200 focus:border-blue-500 transition-colors py-2 pr-16" 
-                            />
-                            <span className="absolute right-0 bottom-4 text-2xl font-bold text-slate-400 pointer-events-none">km</span>
-                        </div>
+                    
+                    <div className="flex items-center gap-4 mb-8 bg-slate-50 p-4 rounded-2xl border border-slate-100 focus-within:ring-2 focus-within:ring-indigo-100 transition-all">
+                        <input 
+                            type="number" 
+                            min="1" 
+                            max="100" 
+                            step="0.1" 
+                            value={distance} 
+                            onChange={(e) => setDistance(parseFloat(e.target.value))} 
+                            className="w-full text-5xl font-black text-slate-900 tracking-tighter bg-transparent outline-none text-center" 
+                        />
+                        <span className="text-xl font-bold text-slate-400">km</span>
                     </div>
-                    <button onClick={generateRouteOptions} disabled={loading} className="w-full py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl font-bold text-lg shadow-xl hover:from-blue-600 hover:to-indigo-700 hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3">
+
+                    <button onClick={generateRouteOptions} disabled={loading} className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-indigo-200 hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3">
                         {loading ? <Loader2 className="animate-spin" /> : <RefreshCw />} Route finden
                     </button>
                 </>
@@ -657,15 +661,15 @@ export default function App() {
                         <span className="font-black text-slate-900 text-lg">Wähle eine Variante</span>
                         <button onClick={resetPlanning} className="text-xs font-bold text-slate-500 bg-slate-100 px-4 py-2 rounded-full hover:bg-slate-200 transition-colors">Abbrechen</button>
                     </div>
-                    <div className="flex gap-4 mb-6 overflow-x-auto pb-2 snap-x scrollbar-hide">
+                    <div className="flex gap-4 mb-6 overflow-x-auto pb-4 snap-x scrollbar-hide">
                         {routeOptions.map((opt, idx) => (
-                            <button key={idx} onClick={() => selectOption(opt, idx)} className={`flex-shrink-0 w-28 p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 snap-center group ${selectedOptionIndex === idx ? 'border-blue-600 bg-blue-50 shadow-lg scale-105' : 'border-slate-100 bg-white hover:border-blue-300'}`}>
-                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-black text-sm transition-colors ${selectedOptionIndex === idx ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-blue-100 group-hover:text-blue-600'}`}>{idx + 1}</div>
-                                <span className="font-bold text-slate-800">{(opt.route.distance / 1000).toFixed(1)} <span className="text-xs text-slate-400 font-normal">km</span></span>
+                            <button key={idx} onClick={() => selectOption(opt, idx)} className={`flex-shrink-0 w-32 p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-3 snap-center group ${selectedOptionIndex === idx ? 'border-indigo-600 bg-indigo-50 shadow-lg scale-105' : 'border-slate-100 bg-white hover:border-indigo-200 hover:shadow-md'}`}>
+                                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-lg transition-colors ${selectedOptionIndex === idx ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400 group-hover:bg-indigo-100 group-hover:text-indigo-600'}`}>{idx + 1}</div>
+                                <span className="font-bold text-slate-800 text-lg">{(opt.route.distance / 1000).toFixed(1)} <span className="text-sm text-slate-400 font-medium">km</span></span>
                             </button>
                         ))}
                     </div>
-                    <button onClick={confirmSelection} className="w-full py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl font-bold text-lg shadow-xl hover:from-blue-600 hover:to-indigo-700 hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
+                    <button onClick={confirmSelection} className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-indigo-200 hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-2">
                         <CheckCircle2 className="h-5 w-5" /> Diese Route wählen
                     </button>
                 </div>
@@ -677,14 +681,14 @@ export default function App() {
                      <div className="flex justify-between items-start mb-8">
                          <div>
                             <div className="text-xs font-black text-slate-400 uppercase tracking-widest mb-1">Distanz</div>
-                            <div className="text-4xl font-black text-slate-900 tracking-tighter">{actualDistance} <span className="text-lg text-slate-400 font-bold">km</span></div>
-                            <div className="text-sm font-bold text-slate-500 flex items-center gap-1.5 mt-2 bg-slate-100 w-fit px-3 py-1 rounded-lg"><Clock size={14}/> {formatDuration(parseFloat(actualDistance))}</div>
+                            <div className="text-5xl font-black text-slate-900 tracking-tighter">{actualDistance} <span className="text-lg text-slate-400 font-bold">km</span></div>
+                            <div className="text-sm font-bold text-indigo-600 flex items-center gap-1.5 mt-2 bg-indigo-50 w-fit px-3 py-1.5 rounded-lg"><Clock size={14}/> {formatDuration(parseFloat(actualDistance))}</div>
                          </div>
                          <div className="flex gap-2">
-                            <button onClick={toggleSaveRoute} className={`p-3.5 rounded-2xl transition-all hover:scale-105 hover:shadow-md border ${isCurrentRouteSaved ? 'bg-rose-50 text-rose-500 border-rose-100 shadow-sm' : 'bg-white text-slate-400 border-slate-100 hover:text-rose-500 hover:border-rose-100'}`}>
+                            <button onClick={toggleSaveRoute} className={`p-4 rounded-2xl transition-all hover:scale-105 hover:shadow-md border ${isCurrentRouteSaved ? 'bg-rose-50 text-rose-500 border-rose-100 shadow-sm' : 'bg-white text-slate-400 border-slate-100 hover:text-rose-500 hover:border-rose-100'}`}>
                                 <Heart size={24} className={isCurrentRouteSaved ? "fill-current" : ""} />
                             </button>
-                            <button onClick={() => setShowSettings(!showSettings)} className="p-3.5 bg-white text-slate-400 rounded-2xl hover:bg-slate-50 border border-slate-100 hover:text-slate-700 transition-all hover:shadow-sm"><MoreVertical size={24} /></button>
+                            <button onClick={() => setShowSettings(!showSettings)} className="p-4 bg-white text-slate-400 rounded-2xl hover:bg-slate-50 border border-slate-100 hover:text-slate-700 transition-all hover:shadow-sm"><MoreVertical size={24} /></button>
                          </div>
                      </div>
                      
@@ -692,7 +696,7 @@ export default function App() {
                          <button onClick={resetPlanning} className="col-span-1 py-4 bg-slate-100 text-slate-600 rounded-2xl font-bold hover:bg-slate-200 transition-colors flex flex-col items-center justify-center gap-1">
                             <RefreshCw size={20} /> <span className="text-xs">Neu</span>
                          </button>
-                         <button onClick={goToExport} className="col-span-2 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl font-bold shadow-xl hover:from-blue-600 hover:to-indigo-700 hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 text-lg">
+                         <button onClick={goToExport} className="col-span-2 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-2xl font-bold shadow-xl shadow-indigo-200 hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3 text-lg">
                             Starten <ArrowRight size={24}/>
                          </button>
                      </div>
@@ -701,18 +705,18 @@ export default function App() {
 
             {/* 4. EXPORT */}
             {viewState === 'export' && (
-                <div className="text-center animate-in zoom-in-95 py-4">
-                    <div className="w-20 h-20 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                        <MapIcon size={40} />
+                <div className="text-center animate-in zoom-in-95 py-6">
+                    <div className="w-24 h-24 bg-green-50 text-green-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner ring-8 ring-green-50/50">
+                        <MapIcon size={48} />
                     </div>
-                    <h3 className="text-2xl font-black text-slate-900 mb-2">Route bereit!</h3>
-                    <p className="text-slate-500 mb-8 px-4 font-medium">Deine Route wurde berechnet. Übergebe sie jetzt an Google Maps für die Navigation.</p>
+                    <h3 className="text-3xl font-black text-slate-900 mb-3 tracking-tight">Viel Spaß!</h3>
+                    <p className="text-slate-500 mb-8 px-4 font-medium text-lg leading-relaxed">Deine Route ist bereit. Wir übergeben jetzt an die Profis für die Navigation.</p>
                     
-                    <button onClick={openExternalMaps} className="w-full py-5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-2xl font-bold text-xl shadow-xl hover:from-blue-600 hover:to-indigo-700 hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3">
-                        📍 In Google Maps öffnen
+                    <button onClick={openExternalMaps} className="w-full py-5 bg-gradient-to-r from-green-500 to-emerald-600 text-white rounded-2xl font-bold text-xl shadow-xl shadow-green-200 hover:shadow-2xl hover:scale-[1.02] active:scale-[0.98] transition-all flex items-center justify-center gap-3">
+                        📍 Google Maps öffnen
                     </button>
                     
-                    <button onClick={() => setViewState('ready')} className="mt-6 text-slate-400 font-bold text-sm hover:text-slate-700 hover:underline transition-all">
+                    <button onClick={() => setViewState('ready')} className="mt-8 text-slate-400 font-bold text-sm hover:text-slate-700 hover:underline transition-all">
                         Zurück zur Übersicht
                     </button>
                 </div>
