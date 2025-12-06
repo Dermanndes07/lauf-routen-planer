@@ -1,22 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Navigation, RefreshCw, Footprints, Ruler, Search, MoreVertical, X, Settings, Map as MapIcon, StopCircle, Heart, List, Trash2, Calendar, Edit2, Share2, CheckCircle2, Cloud, Sun, CloudRain, Download, Clock, BarChart3, ExternalLink, ArrowRight } from 'lucide-react';
-import { Analytics } from '@vercel/analytics/react';
 
-/* --- EINSTELLUNGEN --- */
-// Falls du Google Analytics nutzt, trage die ID hier ein. Sonst leer lassen.
+// Google Analytics Konfiguration (optional, sonst leer lassen)
 const GA_MEASUREMENT_ID = ""; 
 
-// Leaflet Map Komponente mit verbessertem Style
+// Leaflet Map Komponente mit modernem "Google Maps"-Design
 const LeafletMap = ({ center, routeCoords, markers, onMarkerDragEnd, userLocation, viewState, onMapReady }) => {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const routeLayerRef = useRef(null);
-  const borderLayerRef = useRef(null); // Für den "Rand" um die Route
-  const markersRef = useRef([]);
+  const borderLayerRef = useRef(null);
   const userMarkerRef = useRef(null);
+  const markersRef = useRef([]);
 
   useEffect(() => {
-    // Leaflet CSS laden
+    // Leaflet Styles laden falls noch nicht vorhanden
     if (!document.getElementById('leaflet-css')) {
         const link = document.createElement('link');
         link.id = 'leaflet-css';
@@ -25,7 +23,7 @@ const LeafletMap = ({ center, routeCoords, markers, onMarkerDragEnd, userLocatio
         document.head.appendChild(link);
     }
 
-    // Leaflet JS laden
+    // Leaflet Script laden
     if (!window.L) {
         const script = document.createElement('script');
         script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
@@ -36,6 +34,7 @@ const LeafletMap = ({ center, routeCoords, markers, onMarkerDragEnd, userLocatio
         initMap();
     }
 
+    // Cleanup beim Schließen
     return () => {
         if (mapInstanceRef.current) {
             mapInstanceRef.current.remove();
@@ -50,19 +49,21 @@ const LeafletMap = ({ center, routeCoords, markers, onMarkerDragEnd, userLocatio
     // Karte initialisieren
     mapInstanceRef.current = window.L.map(mapRef.current, {
         zoomControl: false,
-        attributionControl: false // Wir bauen eine eigene, dezentere Attribution
+        attributionControl: false 
     }).setView(center, 15);
 
-    // NEUER KARTEN-STYLE: CartoDB Voyager (sieht sauberer/moderner aus, wie Google Maps)
+    // NEUER STYLE: CartoDB Voyager (Heller, moderner Look ähnlich Google Maps)
     window.L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
       maxZoom: 20,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+      attribution: '&copy; OpenStreetMap &copy; CARTO'
     }).addTo(mapInstanceRef.current);
 
-    // Manuelle Attribution unten rechts hinzufügen (klein)
-    window.L.control.attribution({ position: 'bottomright' }).addTo(mapInstanceRef.current);
+    // Zoom Control unten rechts
+    window.L.control.zoom({ position: 'bottomright' }).addTo(mapInstanceRef.current);
 
-    // Fix für graue Kacheln beim Laden
+    // Attribution klein unten rechts
+    window.L.control.attribution({ position: 'bottomright', prefix: false }).addTo(mapInstanceRef.current);
+
     setTimeout(() => {
         if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
     }, 200);
@@ -99,17 +100,22 @@ const LeafletMap = ({ center, routeCoords, markers, onMarkerDragEnd, userLocatio
     markersRef.current.forEach(m => map.removeLayer(m));
     markersRef.current = [];
 
-    // Alte Route entfernen (Rand und Kern)
+    // Alte Route entfernen
     if (routeLayerRef.current) map.removeLayer(routeLayerRef.current);
     if (borderLayerRef.current) map.removeLayer(borderLayerRef.current);
-
-    // User Marker (Startpunkt)
     if (userMarkerRef.current) map.removeLayer(userMarkerRef.current);
 
-    // Startpunkt-Icon
+    // Startpunkt Marker (Pulsierend beim Planen)
+    const pulseHtml = viewState === 'planning' 
+        ? `<div class="relative flex items-center justify-center w-full h-full">
+             <div class="absolute w-full h-full bg-blue-500/30 rounded-full animate-ping"></div>
+             <div style="background-color: #4285F4; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 4px 10px rgba(0,0,0,0.3); position: relative; z-index: 10;"></div>
+           </div>`
+        : `<div style="background-color: #4285F4; width: 18px; height: 18px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 5px rgba(0,0,0,0.3);"></div>`;
+
     const userIcon = L.divIcon({
         className: 'user-pos-icon',
-        html: `<div style="background-color: #4285F4; width: 24px; height: 24px; border-radius: 50%; border: 4px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.4);"></div>`,
+        html: pulseHtml,
         iconSize: [24, 24],
         iconAnchor: [12, 12]
     });
@@ -129,36 +135,37 @@ const LeafletMap = ({ center, routeCoords, markers, onMarkerDragEnd, userLocatio
 
     // ROUTE ZEICHNEN (Google Maps Style)
     if (routeCoords && routeCoords.length > 0) {
-      // 1. Weißer Rand (Hintergrund-Linie, etwas dicker)
+      // 1. Dicker Rand (für Kontrast zur Straße)
       borderLayerRef.current = L.polyline(routeCoords, {
-        color: '#1967d2', // Dunkleres Blau für Kontrast
-        weight: 9, 
-        opacity: 0.6,
+        color: '#1557b0', // Dunkelblau
+        weight: 8, 
+        opacity: 0.5,
         lineCap: 'round',
         lineJoin: 'round'
       }).addTo(map);
 
-      // 2. Blaue Hauptlinie (Vordergrund)
+      // 2. Blaue Hauptlinie
       routeLayerRef.current = L.polyline(routeCoords, {
         color: '#4285F4', // Google Maps Blau
-        weight: 6,
+        weight: 5,
         opacity: 1.0,
         lineCap: 'round',
         lineJoin: 'round'
       }).addTo(map);
       
-      // Karte auf Route zentrieren mit Padding
-      map.fitBounds(routeLayerRef.current.getBounds(), { 
-          padding: [50, 50],
-          maxZoom: 16 
-      });
+      // Karte auf Route zentrieren (außer im Planungsmodus)
+      if (viewState !== 'planning') {
+          map.fitBounds(routeLayerRef.current.getBounds(), { 
+              padding: [40, 40],
+              maxZoom: 16 
+          });
+      }
     } else {
-       // Wenn keine Route, auf User zentrieren
        if (viewState === 'planning') map.panTo(center);
     }
   };
 
-  return <div ref={mapRef} className="w-full h-full z-0" style={{background: '#f0f3f8'}} />;
+  return <div ref={mapRef} className="w-full h-full z-0 bg-[#eef2f6]" />;
 };
 
 export default function App() {
@@ -171,9 +178,7 @@ export default function App() {
   const [waypoints, setWaypoints] = useState([]); 
   const [actualDistance, setActualDistance] = useState(0);
   
-  // States: 'planning', 'preview', 'ready', 'export'
   const [viewState, setViewState] = useState('planning'); 
-
   const [routeOptions, setRouteOptions] = useState([]); 
   const [selectedOptionIndex, setSelectedOptionIndex] = useState(null);
 
@@ -199,7 +204,7 @@ export default function App() {
       localStorage.setItem('laufRoutenPlaner_routes', JSON.stringify(savedRoutes));
   }, [savedRoutes]);
 
-  // Google Analytics Script Injection
+  // Google Analytics Injection (Manuell, um Paketfehler zu vermeiden)
   useEffect(() => {
       if (GA_MEASUREMENT_ID && GA_MEASUREMENT_ID.length > 5) {
           const script = document.createElement('script');
@@ -288,10 +293,10 @@ export default function App() {
   };
 
   const fetchSingleRoute = async (loopRadius, directionAngle) => {
+      // Wir bauen ein Viereck NEBEN dem User auf, um einen Rundkurs zu erzwingen
       const loopCenter = moveCoordinate(userLocation[0], userLocation[1], loopRadius, directionAngle);
       const baseAngle = directionAngle + 180; 
 
-      // Viereck für Rundkurs
       const wp1 = moveCoordinate(loopCenter[0], loopCenter[1], loopRadius, baseAngle + 90);
       const wp2 = moveCoordinate(loopCenter[0], loopCenter[1], loopRadius, baseAngle + 180); 
       const wp3 = moveCoordinate(loopCenter[0], loopCenter[1], loopRadius, baseAngle + 270);
@@ -304,8 +309,7 @@ export default function App() {
         ${userLocation[1]},${userLocation[0]}
       `.replace(/\s/g, '');
 
-      // Wir nutzen das 'walking' profil, aber erzwingen 'foot' falls nötig via URL
-      // continue_straight=false erlaubt Wenden, was manchmal hilft eine Route zu finden
+      // OSRM 'walking' Profil, continue_straight=true verhindert sofortiges Wenden
       const response = await fetch(`https://router.project-osrm.org/route/v1/foot/${coordinatesString}?overview=full&geometries=geojson&continue_straight=true`);
       if (!response.ok) throw new Error("Routing Server Fehler");
       const data = await response.json();
@@ -323,14 +327,13 @@ export default function App() {
       let bestResult = null;
       let minDiff = Infinity;
       
-      // Max 3 Versuche pro Option für Performance
+      // 3 Versuche pro Route um Distanz zu treffen
       for (let attempt = 0; attempt < 3; attempt++) {
           try {
               if (attempt > 0) {
-                  const jitter = 0.9 + Math.random() * 0.2; 
+                  const jitter = 0.95 + Math.random() * 0.1; 
                   currentRadius = currentRadius * jitter;
               }
-
               const result = await fetchSingleRoute(currentRadius, angleOffset);
               const resultDist = result.route.distance / 1000; 
               const diff = Math.abs(resultDist - targetDistance);
@@ -340,12 +343,12 @@ export default function App() {
                   bestResult = { ...result, actualDist: resultDist };
               }
 
-              if (diff <= 0.5) return bestResult;
+              if (diff <= 0.5) return bestResult; // Nah genug!
 
               const ratio = targetDistance / resultDist;
               const safeRatio = Math.max(0.6, Math.min(1.4, ratio));
               currentRadius = currentRadius * safeRatio;
-          } catch (e) { /* ignore retry error */ }
+          } catch (e) { /* ignore */ }
       }
       return bestResult;
   };
@@ -361,9 +364,9 @@ export default function App() {
     setCurrentSavedRouteId(null);
     
     try {
-      // Initiale Schätzung
+      // Initiale Radius-Schätzung (Faktor 1.35 für Kurven)
       const initialRadius = (distance / 1.35) / (2 * Math.PI); 
-      const angles = [0, 120, 240]; // 3 Richtungen
+      const angles = [0, 120, 240]; // 3 Himmelsrichtungen
 
       const promises = angles.map(angle => 
           generatePreciseRouteOption(initialRadius, angle, distance)
@@ -374,7 +377,7 @@ export default function App() {
       const validOptions = results.filter(r => r.success);
 
       if (validOptions.length === 0) {
-          throw new Error("Konnte an diesem Ort keine passenden Wege finden.");
+          throw new Error("Konnte hier keine Route finden.");
       }
 
       setRouteOptions(validOptions);
@@ -382,7 +385,7 @@ export default function App() {
 
     } catch (err) {
       console.error(err);
-      setError("Fehler: Routing-Server antwortet nicht oder Ort ist ungeeignet.");
+      setError("Konnte Route nicht berechnen. Server ausgelastet oder Ort ungeeignet.");
       setViewState('planning');
     } finally {
       setLoading(false);
@@ -395,7 +398,6 @@ export default function App() {
       setRouteCoords(latLngs);
       setWaypoints(option.waypoints);
       setActualDistance((option.route.distance / 1000).toFixed(2));
-      
       setIsCurrentRouteSaved(false);
       setCurrentSavedRouteId(null);
   };
@@ -413,29 +415,22 @@ export default function App() {
       setRouteCoords([]);
       setRouteOptions([]);
       setActualDistance(0);
-      setIsCurrentRouteSaved(false);
-      setCurrentSavedRouteId(null);
-      setSelectedOptionIndex(null);
       setViewState('planning');
   };
 
   const toggleSaveRoute = () => {
       if (isCurrentRouteSaved && currentSavedRouteId) {
-          deleteRoute(currentSavedRouteId);
+          setSavedRoutes(prev => prev.filter(r => r.id !== currentSavedRouteId));
           setIsCurrentRouteSaved(false);
-          setCurrentSavedRouteId(null);
       } else {
-          const dateStr = new Date().toLocaleDateString('de-DE');
-          const defaultName = `Lauf am ${dateStr}`;
           const newId = Date.now();
-
           const newRoute = {
               id: newId,
-              name: defaultName,
+              name: `Lauf ${new Date().toLocaleDateString()}`,
               coords: routeCoords,
               distance: actualDistance,
               startLocation: userLocation,
-              date: dateStr,
+              date: new Date().toLocaleDateString(),
               waypoints: waypoints
           };
           setSavedRoutes([newRoute, ...savedRoutes]);
@@ -446,44 +441,34 @@ export default function App() {
 
   const deleteRoute = (id) => {
       setSavedRoutes(prev => prev.filter(r => r.id !== id));
-      if (currentSavedRouteId === id) {
-          setIsCurrentRouteSaved(false);
-          setCurrentSavedRouteId(null);
-      }
+      if (currentSavedRouteId === id) setIsCurrentRouteSaved(false);
   };
 
   const renameRoute = (id) => {
       const route = savedRoutes.find(r => r.id === id);
       if (!route) return;
-      const newName = window.prompt("Neuer Name für die Route:", route.name);
-      if (newName && newName.trim() !== "") {
+      const newName = window.prompt("Name:", route.name);
+      if (newName?.trim()) {
           setSavedRoutes(savedRoutes.map(r => r.id === id ? { ...r, name: newName.trim() } : r));
       }
   };
 
   const shareRoute = (route) => {
       const origin = `${route.startLocation[0]},${route.startLocation[1]}`;
-      const destination = origin;
       const waypointsStr = route.waypoints ? route.waypoints.map(wp => `${wp[0]},${wp[1]}`).join('|') : '';
-      const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypointsStr}&travelmode=walking`;
-      const shareText = `🏃‍♂️ Laufstrecke: "${route.name}" (${route.distance}km).\n${mapsUrl}`;
-
-      if (navigator.share) {
-          navigator.share({ title: 'Meine Laufrunde', text: shareText, url: mapsUrl }).catch(() => {});
-      } else {
-          const waUrl = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
-          window.open(waUrl, '_blank');
-      }
+      const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${origin}&waypoints=${waypointsStr}&travelmode=walking`;
+      const shareText = `🏃‍♂️ ${route.name} (${route.distance}km)\n${mapsUrl}`;
+      if (navigator.share) navigator.share({ title: 'LaufRunde', text: shareText, url: mapsUrl }).catch(()=>{});
+      else window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
   };
 
   const downloadGPX = (route) => {
-      const gpxData = `<?xml version="1.0" encoding="UTF-8"?>
-<gpx version="1.1" creator="LaufRoutenPlaner"><metadata><name>${route.name}</name></metadata><trk><name>${route.name}</name><trkseg>${route.coords.map(c => `<trkpt lat="${c[0]}" lon="${c[1]}"></trkpt>`).join('')}</trkseg></trk></gpx>`;
+      const gpxData = `<?xml version="1.0" encoding="UTF-8"?><gpx version="1.1"><trk><name>${route.name}</name><trkseg>${route.coords.map(c => `<trkpt lat="${c[0]}" lon="${c[1]}"></trkpt>`).join('')}</trkseg></trk></gpx>`;
       const blob = new Blob([gpxData], { type: 'application/gpx+xml' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${route.name.replace(/\s+/g, '_')}.gpx`;
+      link.download = `route.gpx`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -504,7 +489,6 @@ export default function App() {
   const openExternalMaps = () => {
       if (waypoints.length < 3) return;
       const origin = `${userLocation[0]},${userLocation[1]}`;
-      // Trickserei für Apple Maps/Google Maps um Rundkurs zu erzwingen
       const waypointsStr = waypoints.map(wp => `${wp[0]},${wp[1]}`).join('|');
       const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${origin}&waypoints=${waypointsStr}&travelmode=walking`;
       window.open(url, '_blank');
@@ -526,36 +510,38 @@ export default function App() {
 
   return (
     <div className="flex flex-col h-screen w-full bg-slate-50 font-sans text-slate-800 overflow-hidden relative">
-      <Analytics />
-      {/* Header */}
+      {/* Floating Header */}
       {viewState !== 'export' && (
-        <div className="bg-white shadow-sm z-20 p-3 flex flex-col gap-3 flex-shrink-0 animate-in slide-in-from-top-5 border-b border-slate-100">
-            <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-blue-600">
-                    <Footprints className="h-6 w-6" />
-                    <h1 className="font-bold text-lg tracking-tight">LaufRunde</h1>
+        <div className="absolute top-4 left-4 right-4 z-[500] flex flex-col gap-2">
+            <div className="bg-white/90 backdrop-blur-md shadow-lg rounded-2xl p-3 flex items-center justify-between border border-white/20">
+                <div className="flex items-center gap-2 text-blue-600 pl-1">
+                    <Footprints className="h-6 w-6 fill-current" />
+                    <span className="font-bold text-lg tracking-tight text-slate-800">LaufRunde</span>
                 </div>
                 
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2">
                     {weather && (
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-800 rounded-full text-xs font-bold border border-blue-100">
+                        <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-xs font-bold">
                             {getWeatherIcon(weather.weathercode)}
                             <span>{Math.round(weather.temperature)}°C</span>
                         </div>
                     )}
-                    <button onClick={() => setShowSavedRoutes(true)} className="p-2 bg-slate-50 text-slate-600 rounded-full hover:bg-slate-200 transition border border-slate-200"><List className="h-5 w-5" /></button>
-                    <button onClick={locateUser} className="p-2 bg-slate-50 text-slate-600 rounded-full hover:bg-slate-200 transition border border-slate-200"><Navigation className="h-5 w-5" /></button>
+                    <button onClick={() => setShowSavedRoutes(true)} className="p-2 bg-white text-slate-600 rounded-full shadow-sm hover:bg-slate-50 border border-slate-100"><List size={20} /></button>
+                    <button onClick={locateUser} className="p-2 bg-blue-600 text-white rounded-full shadow-md hover:bg-blue-700"><Navigation size={20} /></button>
                 </div>
             </div>
-            <form onSubmit={handleManualLocationSearch} className="relative w-full">
-                <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Ort suchen..." className="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-blue-400 outline-none text-sm" />
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-            </form>
+            {/* Search Bar only in planning */}
+            {viewState === 'planning' && (
+                 <form onSubmit={handleManualLocationSearch} className="bg-white/90 backdrop-blur-md shadow-lg rounded-2xl p-1 flex items-center border border-white/20">
+                    <Search className="ml-3 text-slate-400 h-5 w-5" />
+                    <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Startpunkt suchen..." className="w-full p-3 bg-transparent outline-none text-sm" />
+                </form>
+            )}
         </div>
       )}
 
       {/* Map */}
-      <div className="flex-grow relative z-10">
+      <div className="flex-grow relative z-0">
         <LeafletMap 
           center={userLocation} 
           routeCoords={routeCoords} 
@@ -564,118 +550,141 @@ export default function App() {
           userLocation={userLocation}
           viewState={viewState}
         />
+      </div>
 
-        {/* SAVED ROUTES OVERLAY */}
-        {showSavedRoutes && (
-             <div className="absolute inset-0 z-[600] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4" onClick={() => setShowSavedRoutes(false)}>
-                <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
-                    <div className="p-4 border-b flex justify-between items-center">
-                        <h3 className="font-bold text-lg flex gap-2"><Heart size={18} className="text-rose-500 fill-rose-500"/> Gespeicherte Routen</h3>
-                        <button onClick={() => setShowSavedRoutes(false)}><X size={20}/></button>
-                    </div>
-                    <div className="p-4 overflow-y-auto space-y-3">
-                        {savedRoutes.length === 0 && <p className="text-center text-slate-400 py-4">Keine Routen vorhanden.</p>}
-                        {savedRoutes.map(route => (
-                            <div key={route.id} className="bg-slate-50 border rounded-xl p-3 cursor-pointer hover:bg-blue-50" onClick={() => loadRoute(route)}>
-                                <div className="font-bold">{route.name}</div>
-                                <div className="text-sm text-blue-600">{route.distance} km <span className="text-slate-400">| {route.date}</span></div>
-                                <div className="flex justify-end gap-2 mt-2">
-                                    <button onClick={(e) => { e.stopPropagation(); renameRoute(route.id); }} className="p-1.5 bg-white rounded border"><Edit2 size={14}/></button>
-                                    <button onClick={(e) => { e.stopPropagation(); shareRoute(route); }} className="p-1.5 bg-white rounded border"><Share2 size={14}/></button>
-                                    <button onClick={(e) => { e.stopPropagation(); downloadGPX(route); }} className="p-1.5 bg-white rounded border"><Download size={14}/></button>
-                                    <button onClick={(e) => { e.stopPropagation(); deleteRoute(route.id); }} className="p-1.5 bg-white rounded border text-red-500"><Trash2 size={14}/></button>
-                                </div>
+      {/* SAVED ROUTES */}
+      {showSavedRoutes && (
+            <div className="absolute inset-0 z-[600] bg-black/30 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 animate-in fade-in" onClick={() => setShowSavedRoutes(false)}>
+            <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden max-h-[70vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                <div className="p-5 border-b flex justify-between items-center bg-slate-50/50">
+                    <h3 className="font-bold text-lg">Meine Routen</h3>
+                    <button onClick={() => setShowSavedRoutes(false)} className="p-1 hover:bg-slate-200 rounded-full"><X size={20}/></button>
+                </div>
+                <div className="p-4 overflow-y-auto space-y-3">
+                    {savedRoutes.length === 0 && <p className="text-center text-slate-400 py-8">Noch nichts gespeichert.</p>}
+                    {savedRoutes.map(route => (
+                        <div key={route.id} className="bg-white border border-slate-100 rounded-2xl p-4 shadow-sm active:scale-[0.98] transition-transform cursor-pointer" onClick={() => loadRoute(route)}>
+                            <div className="flex justify-between items-start mb-2">
+                                <span className="font-bold text-slate-800">{route.name}</span>
+                                <span className="text-xs bg-slate-100 px-2 py-1 rounded-full text-slate-500">{route.date}</span>
                             </div>
+                            <div className="flex items-center gap-4 text-sm text-slate-600">
+                                <span className="flex items-center gap-1"><Ruler size={14}/> {route.distance} km</span>
+                                <span className="flex items-center gap-1"><Clock size={14}/> ~{formatDuration(parseFloat(route.distance))}</span>
+                            </div>
+                            <div className="mt-3 flex justify-end gap-3">
+                                <button onClick={(e) => {e.stopPropagation(); deleteRoute(route.id)}} className="text-red-400 hover:text-red-600 p-1"><Trash2 size={18}/></button>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+            </div>
+      )}
+
+      {/* SETTINGS */}
+      {showSettings && (
+        <div className="absolute inset-0 z-[600] bg-black/30 backdrop-blur-sm flex items-end sm:items-center justify-center p-4" onClick={() => setShowSettings(false)}>
+            <div className="bg-white w-full max-w-sm rounded-3xl p-6 shadow-2xl" onClick={e => e.stopPropagation()}>
+                <div className="flex justify-between mb-6"><h3 className="font-bold text-xl">Einstellungen</h3><button onClick={() => setShowSettings(false)}><X size={24}/></button></div>
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                        <label className="font-medium text-slate-600">Lauf-Tempo</label>
+                        <span className="font-bold text-blue-600">{Math.floor(pace)}:{Math.round((pace % 1) * 60).toString().padStart(2, '0')} min/km</span>
+                    </div>
+                    <input type="range" min="3.0" max="10.0" step="0.1" value={pace} onChange={(e) => setPace(parseFloat(e.target.value))} className="w-full h-2 bg-slate-200 rounded-full appearance-none accent-blue-600 cursor-pointer" />
+                    <div className="flex justify-between text-xs text-slate-400"><span>Schnell</span><span>Gemütlich</span></div>
+                </div>
+            </div>
+        </div>
+      )}
+
+      {/* BOTTOM CONTROLS */}
+      <div className="absolute bottom-0 left-0 w-full p-4 z-[500]">
+        {error && <div className="bg-red-500 text-white text-sm p-3 rounded-xl shadow-lg mb-3 font-medium flex items-center gap-2"><X size={16}/> {error}</div>}
+        
+        <div className="bg-white rounded-3xl shadow-2xl p-5 border border-slate-100">
+            
+            {/* 1. PLANNING */}
+            {viewState === 'planning' && (
+                <>
+                    <div className="flex justify-between items-center mb-4">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Wunschdistanz</span>
+                        <button onClick={() => setShowSettings(true)} className="text-slate-400 hover:text-slate-600"><Settings size={20}/></button>
+                    </div>
+                    <div className="flex items-end gap-2 mb-6">
+                        <span className="text-4xl font-black text-slate-800">{distance}</span>
+                        <span className="text-lg font-medium text-slate-400 mb-1">km</span>
+                        <input type="range" min="1" max="20" step="0.5" value={distance} onChange={(e) => setDistance(parseFloat(e.target.value))} className="flex-grow h-2 bg-slate-200 rounded-full appearance-none accent-blue-600 ml-4 cursor-pointer" />
+                    </div>
+                    <button onClick={generateRouteOptions} disabled={loading} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg shadow-lg hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-2">
+                        {loading ? <RefreshCw className="animate-spin" /> : <RefreshCw />} Route finden
+                    </button>
+                </>
+            )}
+
+            {/* 2. PREVIEW */}
+            {viewState === 'preview' && (
+                <div className="animate-in slide-in-from-bottom-10">
+                    <div className="flex justify-between items-center mb-4">
+                        <span className="font-bold text-slate-800">Wähle eine Variante</span>
+                        <button onClick={resetPlanning} className="text-xs font-bold text-rose-500 bg-rose-50 px-3 py-1 rounded-full">Abbrechen</button>
+                    </div>
+                    <div className="flex gap-3 mb-4 overflow-x-auto pb-2 snap-x">
+                        {routeOptions.map((opt, idx) => (
+                            <button key={idx} onClick={() => selectOption(opt, idx)} className={`flex-shrink-0 w-24 p-3 rounded-2xl border-2 transition-all flex flex-col items-center gap-1 snap-center ${selectedOptionIndex === idx ? 'border-blue-600 bg-blue-50 ring-2 ring-blue-200' : 'border-slate-100 bg-white'}`}>
+                                <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${selectedOptionIndex === idx ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-400'}`}>{idx + 1}</div>
+                                <span className="font-bold text-slate-700 text-sm">{(opt.route.distance / 1000).toFixed(1)} km</span>
+                            </button>
                         ))}
                     </div>
+                    <button onClick={confirmSelection} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg shadow-lg hover:bg-blue-700 active:scale-95 transition-all">
+                        Auswählen
+                    </button>
                 </div>
-             </div>
-        )}
+            )}
 
-        {/* SETTINGS OVERLAY */}
-        {showSettings && (
-            <div className="absolute inset-0 z-[600] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4" onClick={() => setShowSettings(false)}>
-                <div className="bg-white w-full max-w-sm rounded-2xl p-5" onClick={e => e.stopPropagation()}>
-                    <div className="flex justify-between mb-4"><h3 className="font-bold">Einstellungen</h3><button onClick={() => setShowSettings(false)}><X size={20}/></button></div>
-                    <label className="block text-sm font-medium text-slate-600 mb-2">Pace (Min/km): {Math.floor(pace)}:{Math.round((pace % 1) * 60).toString().padStart(2, '0')}</label>
-                    <input type="range" min="3.0" max="10.0" step="0.1" value={pace} onChange={(e) => setPace(parseFloat(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none accent-blue-500" />
+            {/* 3. READY */}
+            {viewState === 'ready' && (
+                <div className="animate-in slide-in-from-bottom-10">
+                     <div className="flex justify-between items-start mb-6">
+                         <div>
+                            <div className="text-xs font-bold text-slate-400 uppercase mb-1">Distanz</div>
+                            <div className="text-3xl font-black text-slate-800">{actualDistance} km</div>
+                            <div className="text-sm text-slate-500 flex items-center gap-1 mt-1"><Clock size={14}/> Dauer: ca. {formatDuration(parseFloat(actualDistance))}</div>
+                         </div>
+                         <button onClick={toggleSaveRoute} className={`p-3 rounded-2xl transition-colors ${isCurrentRouteSaved ? 'bg-rose-100 text-rose-600' : 'bg-slate-100 text-slate-400'}`}>
+                            <Heart size={24} className={isCurrentRouteSaved ? "fill-current" : ""} />
+                         </button>
+                     </div>
+                     
+                     <div className="grid grid-cols-2 gap-3">
+                         <button onClick={resetPlanning} className="py-4 bg-slate-100 text-slate-700 rounded-2xl font-bold hover:bg-slate-200 transition">Zurück</button>
+                         <button onClick={goToExport} className="py-4 bg-blue-600 text-white rounded-2xl font-bold shadow-lg hover:bg-blue-700 transition flex items-center justify-center gap-2">
+                            Starten <ArrowRight size={20}/>
+                         </button>
+                     </div>
                 </div>
-            </div>
-        )}
+            )}
 
-        {/* CONTROLS */}
-        <div className="absolute bottom-0 left-0 w-full p-3 z-[500] pointer-events-none">
-            {error && <div className="bg-red-50 text-red-600 text-xs p-2 rounded-lg shadow mb-2 border border-red-200 pointer-events-auto">{error}</div>}
-            
-            <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl p-4 border border-slate-200 pointer-events-auto">
-                
-                {viewState === 'planning' && (
-                    <>
-                        <div className="flex justify-between items-center mb-4">
-                            <span className="text-xs font-bold text-slate-400 uppercase flex gap-1"><Ruler size={14} /> Strecke</span>
-                            <button onClick={() => setShowSettings(!showSettings)} className="p-2 -mr-2 text-slate-400 hover:bg-slate-100 rounded-full"><MoreVertical size={20} /></button>
-                        </div>
-                        <div className="mb-6 flex items-center gap-4">
-                            <span className="text-2xl font-bold text-slate-800 min-w-[3ch]">{distance}</span>
-                            <div className="flex-grow">
-                                <input type="range" min="1" max="20" step="0.5" value={distance} onChange={(e) => setDistance(parseFloat(e.target.value))} className="w-full h-2 bg-slate-200 rounded-lg appearance-none accent-blue-600" />
-                            </div>
-                        </div>
-                        <button onClick={generateRouteOptions} disabled={loading} className="w-full py-3 px-4 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg flex items-center justify-center gap-2">
-                            {loading ? <RefreshCw className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />} <span>Route Planen</span>
-                        </button>
-                    </>
-                )}
-
-                {viewState === 'preview' && (
-                    <div className="animate-in slide-in-from-bottom-5">
-                        <div className="flex justify-between items-center mb-3">
-                             <div className="text-xs font-bold text-slate-400 uppercase">Wähle eine Route</div>
-                             <button onClick={resetPlanning} className="text-xs text-rose-500 font-bold">Abbrechen</button>
-                        </div>
-                        <div className="flex gap-2 mb-4 overflow-x-auto pb-2 no-scrollbar">
-                            {routeOptions.map((opt, idx) => (
-                                <button key={idx} onClick={() => selectOption(opt, idx)} className={`flex-shrink-0 w-28 p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${selectedOptionIndex === idx ? 'border-blue-500 bg-blue-50' : 'border-slate-100 bg-white'}`}>
-                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${selectedOptionIndex === idx ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-500'}`}>{idx + 1}</div>
-                                    <span className="font-bold text-slate-800">{(opt.route.distance / 1000).toFixed(1)} km</span>
-                                </button>
-                            ))}
-                        </div>
-                        <button onClick={confirmSelection} className="w-full py-3 px-4 rounded-xl font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-lg flex items-center justify-center gap-2"><CheckCircle2 className="h-5 w-5" /> <span>Diese Route wählen</span></button>
+            {/* 4. EXPORT */}
+            {viewState === 'export' && (
+                <div className="text-center animate-in zoom-in-95">
+                    <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <MapIcon size={32} />
                     </div>
-                )}
-
-                {viewState === 'ready' && (
-                    <div className="animate-in slide-in-from-bottom-5">
-                         <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
-                             <div><div className="text-[10px] text-slate-400 uppercase">Distanz</div><div className="font-bold text-xl text-slate-800 flex items-end gap-2">{actualDistance} km <span className="text-sm font-normal text-slate-500 mb-1">~{formatDuration(parseFloat(actualDistance))}</span></div></div>
-                             <div className="flex gap-1">
-                                <button onClick={toggleSaveRoute} className={`p-2 rounded-full ${isCurrentRouteSaved ? 'text-rose-500 bg-rose-50' : 'text-slate-400'}`}><Heart size={20} className={isCurrentRouteSaved ? "fill-current" : ""} /></button>
-                                <button onClick={() => setShowSettings(!showSettings)} className="p-2 text-slate-400 rounded-full"><MoreVertical size={20} /></button>
-                             </div>
-                         </div>
-                         <div className="flex gap-3">
-                             <button onClick={resetPlanning} className="flex-1 py-3 bg-slate-100 text-slate-700 rounded-xl font-semibold flex items-center justify-center gap-2"><RefreshCw className="h-5 w-5" /> Neu</button>
-                             <button onClick={goToExport} className="flex-[2] py-3 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2"><MapIcon className="h-5 w-5" /> <span>In Maps öffnen</span></button>
-                         </div>
-                    </div>
-                )}
-
-                {viewState === 'export' && (
-                    <div className="animate-in slide-in-from-bottom-5">
-                        <div className="text-center mb-6">
-                            <h3 className="text-lg font-bold text-slate-800 mb-2">Viel Spaß beim Laufen!</h3>
-                            <p className="text-sm text-slate-500">Die Route wurde an deine Karten-App übergeben.</p>
-                        </div>
-                        <div className="flex flex-col gap-3">
-                            <button onClick={openExternalMaps} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-3 text-lg hover:bg-blue-700">
-                                <MapIcon size={24} /> <span>Jetzt starten (Maps)</span> <ExternalLink size={20} className="opacity-70" />
-                            </button>
-                            <button onClick={() => setViewState('ready')} className="w-full py-3 bg-slate-100 text-slate-600 rounded-xl font-semibold flex items-center justify-center gap-2"><ArrowRight className="h-5 w-5 rotate-180" /> <span>Zurück</span></button>
-                        </div>
-                    </div>
-                )}
-            </div>
+                    <h3 className="text-xl font-bold text-slate-800 mb-2">Route bereit!</h3>
+                    <p className="text-slate-500 mb-6 px-4">Die Route wurde berechnet. Öffne sie jetzt in Google Maps, um die Navigation zu starten.</p>
+                    
+                    <button onClick={openExternalMaps} className="w-full py-4 bg-blue-600 text-white rounded-2xl font-bold text-lg shadow-xl shadow-blue-200 hover:bg-blue-700 active:scale-95 transition-all flex items-center justify-center gap-3">
+                        📍 In Google Maps öffnen
+                    </button>
+                    
+                    <button onClick={() => setViewState('ready')} className="mt-4 text-slate-400 font-medium text-sm hover:text-slate-600">
+                        Zurück zur Übersicht
+                    </button>
+                </div>
+            )}
         </div>
       </div>
     </div>
