@@ -1,21 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Navigation, RefreshCw, Footprints, Ruler, Search, MoreVertical, X, Settings, Play, Map as MapIcon, StopCircle, Heart, List, Trash2, Calendar, Edit2, Share2, CheckCircle2, User, LogOut, Cloud, Sun, CloudRain, Download, Clock, BarChart3 } from 'lucide-react';
-import { Analytics } from '@vercel/analytics/next';
-<Analytics></Analytics>
+import { Navigation, RefreshCw, Footprints, Ruler, Search, MoreVertical, X, Settings, Play, Map as MapIcon, StopCircle, Heart, List, Trash2, Calendar, Edit2, Share2, CheckCircle2, Cloud, Sun, CloudRain, Download, Clock, BarChart3, ExternalLink } from 'lucide-react';
 
-
-
-/* --- BESUCHER TRACKING ANLEITUNG ---
-   Damit du sehen kannst, wie viele Leute auf der Website sind:
-   1. Gehe auf analytics.google.com (kostenlos).
-   2. Erstelle ein Konto und kopiere deine "Mess-ID" (z.B. G-12345678).
-   3. Füge sie unten bei "GA_MEASUREMENT_ID" ein.
+/* --- BESUCHER TRACKING ---
+   Hier deine Google Analytics ID eintragen, falls gewünscht (z.B. "G-123456").
+   Lasse es leer (""), wenn du kein Tracking möchtest.
 */
-const GA_MEASUREMENT_ID = ""; // Hier ID eintragen, z.B. "G-ABC123XYZ"
-
+const GA_MEASUREMENT_ID = ""; 
 
 // Leaflet Map Komponente
-const LeafletMap = ({ center, routeCoords, markers, onMarkerDragEnd, isNavigating, userLocation, previewMode }) => {
+const LeafletMap = ({ center, routeCoords, markers, onMarkerDragEnd, isNavigating, userLocation, previewMode, viewState }) => {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const polylineRef = useRef(null);
@@ -23,22 +16,37 @@ const LeafletMap = ({ center, routeCoords, markers, onMarkerDragEnd, isNavigatin
   const userMarkerRef = useRef(null);
 
   useEffect(() => {
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-    document.head.appendChild(link);
+    // Leaflet Styles laden
+    if (!document.getElementById('leaflet-css')) {
+        const link = document.createElement('link');
+        link.id = 'leaflet-css';
+        link.rel = 'stylesheet';
+        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+        document.head.appendChild(link);
+    }
 
-    const script = document.createElement('script');
-    script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-    script.async = true;
-    script.onload = () => initMap();
-    document.body.appendChild(script);
+    // Leaflet Script laden
+    if (!window.L) {
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+        script.async = true;
+        script.onload = () => initMap();
+        document.body.appendChild(script);
+    } else {
+        initMap();
+    }
 
-    return () => {};
+    // Cleanup beim Unmount
+    return () => {
+        if (mapInstanceRef.current) {
+            mapInstanceRef.current.remove();
+            mapInstanceRef.current = null;
+        }
+    };
   }, []);
 
   const initMap = () => {
-    if (!window.L || mapInstanceRef.current) return;
+    if (!window.L || mapInstanceRef.current || !mapRef.current) return;
 
     mapInstanceRef.current = window.L.map(mapRef.current, {
         zoomControl: false 
@@ -48,68 +56,66 @@ const LeafletMap = ({ center, routeCoords, markers, onMarkerDragEnd, isNavigatin
       attribution: '&copy; OpenStreetMap contributors'
     }).addTo(mapInstanceRef.current);
 
+    // Fix für Render-Probleme (Graue Karte)
+    setTimeout(() => {
+        if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
+    }, 200);
+
     updateMapContent();
   };
 
+  // Resize Handler
   useEffect(() => {
-      if (isNavigating && mapInstanceRef.current && userLocation) {
-          mapInstanceRef.current.setView(userLocation, 18, { animate: true });
-      }
-  }, [isNavigating, userLocation]);
+      const handleResize = () => {
+          if (mapInstanceRef.current) mapInstanceRef.current.invalidateSize();
+      };
+      window.addEventListener('resize', handleResize);
+      return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
+  // Map Update Effect
   useEffect(() => {
     if (window.L && mapInstanceRef.current) {
+      mapInstanceRef.current.invalidateSize(); 
       updateMapContent();
     }
-  }, [center, routeCoords, markers, isNavigating]);
+  }, [center, routeCoords, markers, viewState]);
 
   const updateMapContent = () => {
     const map = mapInstanceRef.current;
+    if (!map || !window.L) return;
+    
     const L = window.L;
 
+    // Marker aufräumen
     markersRef.current.forEach(m => map.removeLayer(m));
     markersRef.current = [];
 
+    // Route aufräumen
     if (polylineRef.current) {
       map.removeLayer(polylineRef.current);
     }
 
-    if (!isNavigating) {
-        markers.forEach((m) => {
-        const icon = L.divIcon({
-            className: 'custom-div-icon',
-            html: `<div style="background-color: ${m.color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.4);"></div>`,
-            iconSize: [12, 12],
-            iconAnchor: [6, 6]
-        });
-        const marker = L.marker(m.pos, { icon }).addTo(map);
-        markersRef.current.push(marker);
-        });
-    }
-
+    // User Marker (Startpunkt) entfernen bevor neu gesetzt
     if (userMarkerRef.current) {
         map.removeLayer(userMarkerRef.current);
     }
 
     const userIcon = L.divIcon({
         className: 'user-pos-icon',
-        html: isNavigating 
-            ? `<div style="background-color: #3b82f6; width: 24px; height: 24px; border-radius: 50%; border: 4px solid white; box-shadow: 0 0 15px rgba(59, 130, 246, 0.6); position: relative;">
-                <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-bottom: 10px solid white;"></div>
-               </div>` 
-            : `<div style="background-color: #3b82f6; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 8px rgba(0,0,0,0.5); cursor: grab;"></div>`,
-        iconSize: [isNavigating ? 24 : 20, isNavigating ? 24 : 20],
-        iconAnchor: [isNavigating ? 12 : 10, isNavigating ? 12 : 10]
+        html: `<div style="background-color: #3b82f6; width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 8px rgba(0,0,0,0.5); cursor: grab;"></div>`,
+        iconSize: [20, 20],
+        iconAnchor: [10, 10]
     });
 
     userMarkerRef.current = L.marker(center, { 
         icon: userIcon, 
         zIndexOffset: 1000,
-        draggable: !isNavigating 
+        draggable: viewState === 'planning' // Nur im Planungsmodus verschiebbar
     }).addTo(map);
 
-    if (!isNavigating) {
-        userMarkerRef.current.bindPopup("Start & Ziel (Verschiebbar)");
+    if (viewState === 'planning') {
+        userMarkerRef.current.bindPopup("Startpunkt (Verschiebbar)");
         userMarkerRef.current.on('dragend', function(event) {
             const marker = event.target;
             const position = marker.getLatLng();
@@ -119,29 +125,23 @@ const LeafletMap = ({ center, routeCoords, markers, onMarkerDragEnd, isNavigatin
         });
     }
 
+    // Route zeichnen (Google Maps Style)
     if (routeCoords && routeCoords.length > 0) {
-      let color = '#ef4444';
-      let opacity = 0.8;
-      
-      if (isNavigating) color = '#3b82f6';
-      else if (previewMode) {
-          color = '#8b5cf6'; // Lila für Preview
-          opacity = 0.9;
-      }
+      const googleBlue = '#4285F4'; 
+      // Im Preview-Modus etwas transparenter, wenn noch nicht gewählt
+      const opacity = viewState === 'preview' ? 0.7 : 1.0;
 
       polylineRef.current = L.polyline(routeCoords, {
-        color: color, 
-        weight: isNavigating ? 8 : 5,
+        color: googleBlue, 
+        weight: 6, 
         opacity: opacity,
         lineCap: 'round',
         lineJoin: 'round'
       }).addTo(map);
       
-      if (!isNavigating) {
-        map.fitBounds(polylineRef.current.getBounds(), { padding: [50, 50] });
-      }
+      map.fitBounds(polylineRef.current.getBounds(), { padding: [50, 50] });
     } else {
-       if (!isNavigating) map.panTo(center);
+       if (viewState === 'planning') map.panTo(center);
     }
   };
 
@@ -159,7 +159,9 @@ export default function App() {
   const [waypoints, setWaypoints] = useState([]); 
   const [actualDistance, setActualDistance] = useState(0);
   
-  // Multiple Options State
+  // View State: 'planning' | 'preview' | 'ready' | 'export'
+  const [viewState, setViewState] = useState('planning'); 
+
   const [routeOptions, setRouteOptions] = useState([]); 
   const [selectedOptionIndex, setSelectedOptionIndex] = useState(null);
 
@@ -171,13 +173,11 @@ export default function App() {
   const [isCurrentRouteSaved, setIsCurrentRouteSaved] = useState(false);
   const [currentSavedRouteId, setCurrentSavedRouteId] = useState(null);
 
-  const [isNavigating, setIsNavigating] = useState(false);
-
   // Weather & Pace
   const [weather, setWeather] = useState(null);
   const [pace, setPace] = useState(6.0); 
 
-  // Local Storage (Routes)
+  // Local Storage (Routes) - Bereinigt auf eine einfache Liste
   const [savedRoutes, setSavedRoutes] = useState(() => {
       try {
           const saved = localStorage.getItem('laufRoutenPlaner_routes');
@@ -194,7 +194,6 @@ export default function App() {
   // Google Analytics Integration
   useEffect(() => {
       if (GA_MEASUREMENT_ID && GA_MEASUREMENT_ID.length > 5) {
-          // Lade das Google Tag Skript dynamisch
           const script = document.createElement('script');
           script.async = true;
           script.src = `https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`;
@@ -228,41 +227,11 @@ export default function App() {
       }
   };
 
-  const watchIdRef = useRef(null);
-
   useEffect(() => {
     locateUser();
-    return () => stopWatching();
   }, []);
 
-  useEffect(() => {
-      if (isNavigating) {
-          startWatching();
-      } else {
-          stopWatching();
-      }
-  }, [isNavigating]);
-
-  const startWatching = () => {
-      if (!navigator.geolocation) return;
-      watchIdRef.current = navigator.geolocation.watchPosition(
-          (position) => {
-              setUserLocation([position.coords.latitude, position.coords.longitude]);
-          },
-          (err) => console.error(err),
-          { enableHighAccuracy: true, maximumAge: 1000, timeout: 5000 }
-      );
-  };
-
-  const stopWatching = () => {
-      if (watchIdRef.current !== null) {
-          navigator.geolocation.clearWatch(watchIdRef.current);
-          watchIdRef.current = null;
-      }
-  };
-
   const locateUser = () => {
-    if (isNavigating) return; 
     setLoading(true);
     if (!navigator.geolocation) {
       setError("Geolocation nicht verfügbar.");
@@ -323,22 +292,14 @@ export default function App() {
     return [lat2 * (180 / Math.PI), lon2 * (180 / Math.PI)];
   };
 
-  // --- NEUER ALGORITHMUS FÜR VIERECKIGE RUNDKURSE ---
-  // Erstellt ein Polygon (Viereck) NEBEN dem Startpunkt, damit man im Kreis läuft.
   const fetchSingleRoute = async (loopRadius, directionAngle) => {
-      
-      // Berechne das Zentrum des Kreises/Vierecks "neben" dem User
       const loopCenter = moveCoordinate(userLocation[0], userLocation[1], loopRadius, directionAngle);
-
-      // Basis-Winkel zurück zum User (User ist eine Ecke des Vierecks)
       const baseAngle = directionAngle + 180; 
 
-      // 3 Weitere Ecken eines Quadrats um das Zentrum
       const wp1 = moveCoordinate(loopCenter[0], loopCenter[1], loopRadius, baseAngle + 90);
       const wp2 = moveCoordinate(loopCenter[0], loopCenter[1], loopRadius, baseAngle + 180); 
       const wp3 = moveCoordinate(loopCenter[0], loopCenter[1], loopRadius, baseAngle + 270);
 
-      // Start -> Ecke 1 -> Ecke 2 -> Ecke 3 -> Start
       const coordinatesString = `
         ${userLocation[1]},${userLocation[0]};
         ${wp1[1]},${wp1[0]};
@@ -347,7 +308,6 @@ export default function App() {
         ${userLocation[1]},${userLocation[0]}
       `.replace(/\s/g, '');
 
-      // 'continue_straight=false' ist wichtig, damit OSRM Wenden vermeidet
       const response = await fetch(`https://router.project-osrm.org/route/v1/foot/${coordinatesString}?overview=full&geometries=geojson&continue_straight=false`);
       if (!response.ok) throw new Error(`Routing Service Error: ${response.status}`);
       const data = await response.json();
@@ -360,44 +320,31 @@ export default function App() {
       };
   };
 
-  // --- PRÄZISIONS-SCHLEIFE ---
-  // Versucht bis zu 5x, den Radius so anzupassen, dass die Distanz fast exakt stimmt.
   const generatePreciseRouteOption = async (initialRadius, angleOffset, targetDistance) => {
       let currentRadius = initialRadius;
       let bestResult = null;
       let minDiff = Infinity;
       
-      // Erhöhe Versuche für bessere Genauigkeit
-      for (let attempt = 0; attempt < 5; attempt++) {
+      for (let attempt = 0; attempt < 3; attempt++) {
           try {
-              // Beim Retry leicht variieren ("Jitter"), um Sackgassen zu umgehen
               if (attempt > 0) {
                   const jitter = 0.95 + Math.random() * 0.1; 
                   currentRadius = currentRadius * jitter;
               }
-
               const result = await fetchSingleRoute(currentRadius, angleOffset);
               const resultDist = result.route.distance / 1000; 
               const diff = Math.abs(resultDist - targetDistance);
 
-              // Merke dir das bisher beste Ergebnis
               if (diff < minDiff) {
                   minDiff = diff;
                   bestResult = { ...result, actualDist: resultDist };
               }
-
-              // Wenn Abweichung <= 0.5km, akzeptieren wir sofort!
               if (diff <= 0.5) {
                   return bestResult;
               }
-
-              // Mathematische Korrektur für den nächsten Versuch
-              // Wenn Strecke zu lang -> Radius kleiner.
               const ratio = targetDistance / resultDist;
-              // Begrenze die Änderung, damit der Radius nicht explodiert oder null wird
               const safeRatio = Math.max(0.6, Math.min(1.4, ratio));
               currentRadius = currentRadius * safeRatio;
-              
           } catch (e) {
               console.warn(`Routing-Versuch ${attempt+1} fehlgeschlagen.`);
           }
@@ -411,21 +358,14 @@ export default function App() {
     setRouteCoords([]);
     setRouteOptions([]);
     setSelectedOptionIndex(null);
-    setIsNavigating(false);
+    setViewState('preview');
     setIsCurrentRouteSaved(false);
     setCurrentSavedRouteId(null);
     
     try {
-      // Annahme: Luftlinie * 1.3 = Wegstrecke (Durchschnitt für gemischte Gebiete)
-      const windingFactor = 1.3; 
-      // Umfang Quadrat = 4 * (Radius * Wurzel(2)). Wir vereinfachen für Kreis-Analogie.
-      // Grobe Startschätzung für Radius
-      const initialRadius = (distance / windingFactor) / (2 * Math.PI); 
-      
-      // 3 Winkel für 3 völlig verschiedene Richtungen (Nord, Süd-Ost, Süd-West)
+      const initialRadius = (distance / 1.35) / (2 * Math.PI); 
       const angles = [0, 120, 240];
 
-      // Parallel 3 optimierte Routen berechnen
       const promises = angles.map(angle => 
           generatePreciseRouteOption(initialRadius, angle, distance)
             .then(res => res ? { ...res, success: true } : { success: false })
@@ -435,7 +375,7 @@ export default function App() {
       const validOptions = results.filter(r => r.success);
 
       if (validOptions.length === 0) {
-          throw new Error("Konnte keine Route in passender Länge finden. Bitte versuche es später erneut oder wechsle den Startpunkt.");
+          throw new Error("Konnte keine passende Route finden. Bitte versuche es später erneut.");
       }
 
       setRouteOptions(validOptions);
@@ -443,7 +383,8 @@ export default function App() {
 
     } catch (err) {
       console.error("Routing Error:", err.message || err);
-      setError("Fehler bei der Berechnung. Der Routing-Server ist evtl. überlastet.");
+      setError("Fehler bei der Berechnung. Der Server ist evtl. ausgelastet.");
+      setViewState('planning');
     } finally {
       setLoading(false);
     }
@@ -462,6 +403,11 @@ export default function App() {
 
   const confirmSelection = () => {
       setRouteOptions([]);
+      setViewState('ready');
+  };
+
+  const startNavigation = () => {
+      setViewState('export');
   };
 
   const resetPlanning = () => {
@@ -471,6 +417,7 @@ export default function App() {
       setIsCurrentRouteSaved(false);
       setCurrentSavedRouteId(null);
       setSelectedOptionIndex(null);
+      setViewState('planning');
   };
 
   const toggleSaveRoute = () => {
@@ -570,6 +517,7 @@ export default function App() {
       setIsCurrentRouteSaved(true); 
       setCurrentSavedRouteId(route.id);
       setRouteOptions([]); 
+      setViewState('ready');
       setShowSavedRoutes(false);
   };
 
@@ -593,10 +541,6 @@ export default function App() {
       }
   };
 
-  const openSavedRoutes = () => {
-      setShowSavedRoutes(true);
-  };
-
   const formatDuration = (km) => {
       const totalMinutes = km * pace;
       const h = Math.floor(totalMinutes / 60);
@@ -616,7 +560,7 @@ export default function App() {
     <div className="flex flex-col h-screen w-full bg-slate-100 font-sans text-slate-800 overflow-hidden relative">
       
       {/* Header */}
-      {!isNavigating && (
+      {viewState !== 'export' && (
         <div className="bg-white shadow-md z-20 p-3 flex flex-col gap-3 flex-shrink-0 animate-in slide-in-from-top-5">
             <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-rose-500">
@@ -625,7 +569,7 @@ export default function App() {
                 </div>
                 
                 <div className="flex gap-2 items-center">
-                    {/* Visitor Tracking Info Icon (Optional) */}
+                    {/* Visitor Info (only if GA ID present) */}
                     {GA_MEASUREMENT_ID && <BarChart3 size={14} className="text-slate-300" title="Analytics Active" />}
 
                     {weather && (
@@ -636,7 +580,7 @@ export default function App() {
                     )}
 
                     <button 
-                        onClick={openSavedRoutes} 
+                        onClick={() => setShowSavedRoutes(true)} 
                         className="p-2 bg-slate-50 text-slate-600 rounded-full hover:bg-slate-200 transition border border-slate-200"
                         title="Gespeicherte Routen"
                     >
@@ -665,19 +609,6 @@ export default function App() {
         </div>
       )}
 
-      {/* Navigations-Header */}
-      {isNavigating && (
-          <div className="absolute top-0 left-0 w-full z-20 p-4 bg-gradient-to-b from-black/60 to-transparent pointer-events-none">
-              <div className="bg-blue-600 text-white p-3 rounded-xl shadow-lg inline-flex items-center gap-3 pointer-events-auto">
-                  <Navigation className="h-6 w-6 animate-pulse" />
-                  <div>
-                      <div className="font-bold text-sm">Navigation aktiv</div>
-                      <div className="text-[10px] opacity-80">Folge der blauen Linie</div>
-                  </div>
-              </div>
-          </div>
-      )}
-
       {/* Map Container */}
       <div className="flex-grow relative z-10">
         <LeafletMap 
@@ -685,9 +616,10 @@ export default function App() {
           routeCoords={routeCoords} 
           markers={[]}
           onMarkerDragEnd={handleMarkerDrag}
-          isNavigating={isNavigating}
+          isNavigating={viewState === 'export'}
           userLocation={userLocation}
-          previewMode={routeOptions.length > 0}
+          previewMode={viewState === 'preview'}
+          viewState={viewState}
         />
 
         {/* OVERLAY: SAVED ROUTES */}
@@ -695,12 +627,8 @@ export default function App() {
              <div className="absolute inset-0 z-[600] bg-black/40 backdrop-blur-sm flex items-end sm:items-center justify-center p-4 transition-all" onClick={() => setShowSavedRoutes(false)}>
                 <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden max-h-[80vh] flex flex-col" onClick={e => e.stopPropagation()}>
                     <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50 flex-shrink-0">
-                        <div className="flex flex-col">
-                            <h3 className="font-bold text-lg flex items-center gap-2"><Heart size={18} className="text-rose-500 fill-rose-500"/> Meine Routen</h3>
-                        </div>
-                        <div className="flex gap-2">
-                             <button onClick={() => setShowSavedRoutes(false)} className="p-1 hover:bg-slate-200 rounded-full"><X size={20}/></button>
-                        </div>
+                        <h3 className="font-bold text-lg flex items-center gap-2"><Heart size={18} className="text-rose-500 fill-rose-500"/> Meine Routen</h3>
+                        <button onClick={() => setShowSavedRoutes(false)} className="p-1 hover:bg-slate-200 rounded-full"><X size={20}/></button>
                     </div>
                     
                     <div className="p-4 overflow-y-auto">
@@ -792,7 +720,7 @@ export default function App() {
             <div className="bg-white/95 backdrop-blur-md rounded-2xl shadow-xl p-4 border border-slate-200 pointer-events-auto transition-all duration-300">
                 
                 {/* 1. STATE: PLANNING (No Route & No Options) */}
-                {!isNavigating && routeOptions.length === 0 && routeCoords.length === 0 && (
+                {viewState === 'planning' && (
                     <>
                         <div className="flex justify-between items-center mb-4">
                             <span className="text-xs font-bold text-slate-400 uppercase flex items-center gap-1"><Ruler size={14} /> Strecke</span>
@@ -812,7 +740,7 @@ export default function App() {
                 )}
 
                 {/* 1.5 STATE: SELECTION (Multiple Options) */}
-                {!isNavigating && routeOptions.length > 0 && (
+                {viewState === 'preview' && (
                     <div className="animate-in slide-in-from-bottom-5">
                         <div className="flex justify-between items-center mb-3">
                              <div className="text-xs font-bold text-slate-400 uppercase">Wähle eine Route</div>
@@ -845,7 +773,7 @@ export default function App() {
                 )}
 
                 {/* 2. STATE: ROUTE CONFIRMED (Ready to start) */}
-                {!isNavigating && routeCoords.length > 0 && routeOptions.length === 0 && (
+                {viewState === 'ready' && (
                     <div className="animate-in slide-in-from-bottom-5">
                          
                          <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
@@ -876,7 +804,7 @@ export default function App() {
                                 <span>Neu Planen</span>
                              </button>
                              
-                             <button onClick={() => setIsNavigating(true)} className="flex-[2] py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-200 flex items-center justify-center gap-2 transition-transform active:scale-95">
+                             <button onClick={startNavigation} className="flex-[2] py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold shadow-lg shadow-blue-200 flex items-center justify-center gap-2 transition-transform active:scale-95">
                                 <Play className="h-5 w-5 fill-current" />
                                 <span>Starten</span>
                              </button>
@@ -884,23 +812,26 @@ export default function App() {
                     </div>
                 )}
 
-                {/* 3. STATE: NAVIGATING (Active) */}
-                {isNavigating && (
+                {/* 3. STATE: EXTERNAL MAP (Instead of Navigation) */}
+                {viewState === 'export' && (
                     <div className="animate-in slide-in-from-bottom-5">
-                        <div className="flex items-center justify-between gap-4">
-                            <div className="flex-grow">
-                                <div className="text-[10px] text-slate-400 uppercase">Ziel</div>
-                                <div className="font-bold text-xl text-slate-800">{actualDistance} km</div>
-                            </div>
+                        <div className="text-center mb-6">
+                            <h3 className="text-lg font-bold text-slate-800 mb-2">Route bereit!</h3>
+                            <p className="text-sm text-slate-500">
+                                Öffne die Route in Google Maps oder Apple Maps, um die Navigation zu starten.
+                            </p>
+                        </div>
 
-                            <button onClick={openExternalMaps} className="p-3 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 flex flex-col items-center justify-center gap-1 shadow-sm" title="In Karten App öffnen">
-                                <MapIcon size={20} />
-                                <span className="text-[10px] font-medium">Maps App</span>
+                        <div className="flex flex-col gap-3">
+                            <button onClick={openExternalMaps} className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold shadow-lg shadow-blue-100 flex items-center justify-center gap-3 text-lg hover:bg-blue-700 transition">
+                                <MapIcon size={24} />
+                                <span>In Maps öffnen</span>
+                                <ExternalLink size={20} className="opacity-70" />
                             </button>
 
-                            <button onClick={() => setIsNavigating(false)} className="py-3 px-6 bg-red-50 text-red-600 border border-red-100 hover:bg-red-100 rounded-xl font-bold flex items-center justify-center gap-2">
+                            <button onClick={() => setViewState('ready')} className="w-full py-3 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded-xl font-semibold flex items-center justify-center gap-2">
                                 <StopCircle className="h-5 w-5" />
-                                <span>Beenden</span>
+                                <span>Zurück zur Übersicht</span>
                             </button>
                         </div>
                     </div>
