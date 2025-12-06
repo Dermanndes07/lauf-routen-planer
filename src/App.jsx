@@ -456,7 +456,7 @@ export default function App() {
   const shareRoute = (route) => {
       const origin = `${route.startLocation[0]},${route.startLocation[1]}`;
       const waypointsStr = route.waypoints ? route.waypoints.map(wp => `${wp[0]},${wp[1]}`).join('|') : '';
-      const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${origin}&waypoints=${waypointsStr}&travelmode=walking`;
+      const mapsUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypointsStr}&travelmode=walking`;
       const shareText = `🏃‍♂️ ${route.name} (${route.distance}km)\n${mapsUrl}`;
       if (navigator.share) navigator.share({ title: 'LaufRunde', text: shareText, url: mapsUrl }).catch(()=>{});
       else window.open(`https://wa.me/?text=${encodeURIComponent(shareText)}`, '_blank');
